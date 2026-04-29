@@ -1,0 +1,62 @@
+name: Build RustDesk Windows x64 Custom
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Enable Flutter Windows
+        shell: pwsh
+        run: flutter config --enable-windows-desktop
+
+      - name: Patch default server config
+        shell: pwsh
+        env:
+          RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
+          RELAY_SERVER: ${{ secrets.RELAY_SERVER }}
+          RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
+        run: |
+          $files = Get-ChildItem -Recurse -File -Path libs -Filter config.rs
+
+          foreach ($f in $files) {
+            $c = Get-Content $f.FullName -Raw
+
+            $c = $c -replace 'pub const DEFAULT_RENDEZVOUS_SERVER: &str = ".*?";',
+                            "pub const DEFAULT_RENDEZVOUS_SERVER: &str = `"$env:RENDEZVOUS_SERVER`";"
+
+            $c = $c -replace 'pub const DEFAULT_RELAY_SERVER: &str = ".*?";',
+                            "pub const DEFAULT_RELAY_SERVER: &str = `"$env:RELAY_SERVER`";"
+
+            $c = $c -replace 'pub const DEFAULT_RS_PUB_KEY: &str = ".*?";',
+                            "pub const DEFAULT_RS_PUB_KEY: &str = `"$env:RS_PUB_KEY`";"
+
+            Set-Content $f.FullName $c -Encoding UTF8
+          }
+
+      - name: Build
+        shell: pwsh
+        run: cargo build --release --target x86_64-pc-windows-msvc
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-custom-win-x64
+          path: target/x86_64-pc-windows-msvc/release/rustdesk.exe
