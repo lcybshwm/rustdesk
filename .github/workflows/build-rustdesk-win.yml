@@ -39,13 +39,6 @@ jobs:
           C:\vcpkg\bootstrap-vcpkg.bat
           echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
 
-      - name: Install native dependencies
-        shell: pwsh
-        run: |
-          C:\vcpkg\vcpkg install opus:x64-windows
-          C:\vcpkg\vcpkg install libyuv:x64-windows
-          C:\vcpkg\vcpkg install aom:x64-windows
-
       - name: Patch RustDesk default server
         shell: pwsh
         env:
